@@ -70,7 +70,7 @@ def manage_users(action, **kwargs):
                 conn.commit()
                 st.cache_data.clear()
             except psycopg2.IntegrityError:
-                st.error("操作失败：用户名已存在或其他约束冲突。")
+                st.error("操作失败：用户名已存在或其他约束冲突")
 
 def manage_pharmacies(action, **kwargs):
     with get_conn() as conn:
@@ -106,7 +106,7 @@ def manage_medicines(action, **kwargs):
 
 def login_section():
     st.title("💊 连锁药店管理系统")
-    st.markdown("欢迎使用，请输入账号密码进行登录。")
+    st.markdown("欢迎使用，请输入账号密码进行登录")
     with st.form("登录"):
         user = st.text_input("用户名")
         pwd = st.text_input("密码", type="password")
@@ -185,24 +185,58 @@ def sales_section():
     st.subheader("🛒 药品销售")
     pharmacy_id = st.session_state.user['pharmacy_id']
     user_id = st.session_state.user['user_id']
+
+    # 读取药品数据
     medicines = get_medicines(pharmacy_id)
-    med_map = {f"{m['name']} | {m['manufacturer']} | 编码: {m['code']}": m['medicine_id'] for m in medicines}
+    if not medicines:
+        st.info("当前药店暂无药品")
+        return
+
+    med_map = {f"{m['name']} | {m['manufacturer']} | 编码: {m['code']}": m for m in medicines}
 
     keyword = st.text_input("🔍 搜索药品 (名称/生产商/编码)")
     if keyword:
         results = search_medicines(pharmacy_id, keyword)
-        for med in results:
-            st.write(f"{med['name']} | {med['manufacturer']} | 库存: {med['stock']} | 价格: ¥{med['price']}")
+        if results:
+            st.markdown("#### 搜索结果:")
+            for med in results:
+                st.write(f"- {med['name']} | {med['manufacturer']} | 库存: {med['stock']} | 价格: ¥{med['price']:.2f}")
+        else:
+            st.info("未找到匹配的药品")
 
     st.markdown("---")
     st.subheader("💳 执行销售")
-    selected = st.selectbox("选择药品", options=list(med_map.keys()))
-    quantity = st.number_input("数量", min_value=1, value=1)
-    if st.button("销售"):
-        if sell_medicine(med_map[selected], quantity, user_id):
-            st.success(f"成功销售 {quantity} 件商品")
+
+    # 选择药品
+    options = list(med_map.keys())
+    selected = st.selectbox("选择药品", options)
+
+    selected_med = med_map[selected]
+    st.markdown(f"**药品详情:** 库存: {selected_med['stock']}  |  价格: ¥{selected_med['price']:.2f}")
+
+    max_qty = selected_med['stock']
+    if max_qty == 0:
+        st.warning("该药品库存为0，无法销售")
+        quantity = st.number_input("数量", min_value=0, max_value=0, value=0, disabled=True)
+        sell_enabled = False
+    else:
+        quantity = st.number_input("数量", min_value=1, max_value=max_qty, value=1)
+        sell_enabled = True
+
+    if st.button("销售", disabled=not sell_enabled):
+        success = sell_medicine(selected_med['medicine_id'], quantity, user_id)
+        if success:
+            st.success(f"成功销售 {quantity} 件《{selected_med['name']}》")
+            # 清除缓存，刷新 medicines 数据
+            st.cache_data.clear()
+            medicines = get_medicines(pharmacy_id)
+            med_map = {f"{m['name']} | {m['manufacturer']} | 编码: {m['code']}": m for m in medicines}
+            # 更新选中药品库存信息
+            selected_med = med_map.get(selected)
+            if selected_med:
+                st.markdown(f"**更新后库存:** {selected_med['stock']}")
         else:
-            st.error("库存不足或药品不存在")
+            st.error("销售失败，库存不足或药品不存在")
 
 def main():
     st.set_page_config(page_title="连锁药店管理系统", layout="wide")
