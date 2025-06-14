@@ -23,7 +23,7 @@ def init_database():
             pharmacy_id INT
         );
         """)
-        print("Users Table Create Success!")
+        print("Create Users Table Success!")
         
         # 创建药店表
         cursor.execute("""
@@ -33,7 +33,7 @@ def init_database():
             address TEXT
         );
         """)
-        print("Pharmacies Table Create Success!")
+        print("Create Pharmacies Table Success!")
         
         # 创建药品表（添加外键约束）
         cursor.execute("""
@@ -47,7 +47,7 @@ def init_database():
             pharmacy_id INT NOT NULL REFERENCES pharmacies(pharmacy_id)
         );
         """)
-        print("Medicines Table Create Success!")
+        print("Create Medicines Table Success!")
         
         # 创建销售记录表
         cursor.execute("""
@@ -59,7 +59,7 @@ def init_database():
             user_id INT REFERENCES users(user_id)
         );
         """)
-        print("Sales Table Create Success!")
+        print("Create Sales Table Success!")
         
         # 插入初始测试数据，先插入药店
         cursor.execute("""
@@ -74,11 +74,11 @@ def init_database():
         cursor.execute("""
         INSERT INTO users (username, password, role, pharmacy_id) 
         VALUES 
-            ('admin', 'admin@pw000', 0, %s),
-            ('manager', 'manager@pw111', 1, %s),
-            ('sales', 'sales@pw222', 2, %s);
+            ('admin', 'admin@pw', 0, %s),
+            ('manager', 'manager@pw', 1, %s),
+            ('sales', 'sales@pw', 2, %s);
         """, (pharmacy_id, pharmacy_id, pharmacy_id))
-        print("User Data Insert Success!")
+        print("Insert Users Success!")
         
         # 然后插入药品
         cursor.execute("""
@@ -87,7 +87,7 @@ def init_database():
             ('阿莫西林胶囊', '云南白药', 'AMXL123', 25.5, 100, %s),
             ('板蓝根颗粒', '同仁堂', 'BLG456', 18.0, 80, %s);
         """, (pharmacy_id, pharmacy_id))
-        print("Medicine Data Insert Success!")
+        print("Insert Medicines Success!")
         
         conn.commit()
         print("Database Initialization Success!")

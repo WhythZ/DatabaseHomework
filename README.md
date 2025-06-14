@@ -51,9 +51,9 @@ python init.py
 ```
 
 - Run `app.py` and visit the generated link in browser to get access to the system, you can log in by three different identities with different operation permission
-    - admin (admin@pw000): Manage the pharmacy shops
-    - manager (manager@pw111): Manage the medicines overall
-    - sales (sales@pw222): Manage the saleing of medicines
+    - admin (admin@pw): Manage the pharmacy shops
+    - manager (manager@pw): Manage the medicines overall
+    - sales (sales@pw): Manage the saleing of medicines
 
 ```bash
 streamlit run app.py
