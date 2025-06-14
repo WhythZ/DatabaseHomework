@@ -29,7 +29,7 @@ pip install -r requirements.txt
 docker run --name DBH --privileged=true -d -e GS_PASSWORD=StrongPassword@1234567890 -p 8888:5432 opengauss/opengauss-server:latest
 ```
 
-- Edit the `config.py` configurations according to your own environment and settings
+- Edit the `config.py` configurations according to your command in former step
 
 ```py
 DB_CONFIG = {
@@ -50,7 +50,10 @@ cd Codes
 python init.py
 ```
 
-- Run `app.py` and visit the generated link in browser to get access to the system
+- Run `app.py` and visit the generated link in browser to get access to the system, you can log in by three different identities with different operation permission
+    - admin (admin@pw000): Manage the pharmacy shops
+    - manager (manager@pw111): Manage the medicines overall
+    - sales (sales@pw222): Manage the saleing of medicines
 
 ```bash
 streamlit run app.py
