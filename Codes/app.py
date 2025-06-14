@@ -122,23 +122,60 @@ def admin_user_section():
     st.subheader("👤 用户管理")
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT user_id, username, role, pharmacy_id FROM users")
+        cur.execute("SELECT user_id, username, password, role, pharmacy_id FROM users")
         rows = cur.fetchall()
         users_df = pd.DataFrame(rows, columns=[desc[0] for desc in cur.description])
         role_map = {0: "系统管理员", 1: "药店管理员", 2: "销售员"}
         users_df["角色"] = users_df["role"].map(role_map)
-        users_df.rename(columns={"user_id": "用户ID", "username": "用户名", "pharmacy_id": "药店ID"}, inplace=True)
-        st.dataframe(users_df[["用户ID", "用户名", "角色", "药店ID"]], use_container_width=True)
+        users_df.rename(columns={
+            "user_id": "用户ID",
+            "username": "用户名",
+            "password": "密码",
+            "pharmacy_id": "药店ID"
+        }, inplace=True)
+        st.dataframe(users_df[["用户ID", "用户名", "密码", "角色", "药店ID"]], use_container_width=True)
 
-    with st.expander("➕ 添加用户"):
-        with st.form("添加用户表单"):
-            username = st.text_input("用户名")
-            password = st.text_input("密码", type="password")
-            role_option = st.selectbox("角色", options=[0, 1, 2], format_func=lambda x: role_map[x])
-            pharmacy_id = st.number_input("药店ID", min_value=1, step=1)
-            if st.form_submit_button("添加"):
-                manage_users("add", username=username, password=password, role=role_option, pharmacy_id=pharmacy_id)
-                st.success("用户添加成功！")
+    # 添加用户部分
+    st.markdown("### 添加用户")
+    with st.form("添加用户表单"):
+        new_username = st.text_input("用户名", key="add_username")
+        new_password = st.text_input("密码", type="password", key="add_password")
+        new_role = st.selectbox("角色", options=[0, 1, 2], format_func=lambda x: role_map[x], key="add_role")
+        new_pharmacy_id = st.number_input("药店ID", min_value=1, step=1, key="add_pharmacy_id")
+        if st.form_submit_button("添加用户"):
+            manage_users("add", username=new_username, password=new_password, role=new_role, pharmacy_id=new_pharmacy_id)
+            st.success("用户添加成功")
+            st.rerun()
+
+    # 删除用户部分
+    st.markdown("### 删除用户")
+    user_ids = users_df["用户ID"].tolist()
+    user_to_delete = st.selectbox("选择要删除的用户ID", user_ids)
+    if st.button("删除用户"):
+        manage_users("delete", user_id=user_to_delete)
+        st.success(f"用户ID {user_to_delete} 已删除")
+        st.rerun()
+
+    # 更新用户部分
+    st.markdown("### 更新用户")
+    user_to_update = st.selectbox("选择要更新的用户ID", user_ids, key="update_user_select")
+    if user_to_update:
+        user_info = users_df[users_df["用户ID"] == user_to_update].iloc[0]
+        with st.form("更新用户表单"):
+            username = st.text_input("用户名", value=user_info["用户名"])
+            role_option = st.selectbox("角色", options=[0, 1, 2],
+                                       format_func=lambda x: role_map[x],
+                                       index={0: 0, 1: 1, 2: 2}[user_info["角色"] == "系统管理员" and 0 or user_info["角色"] == "药店管理员" and 1 or 2])
+            pharmacy_id = st.number_input("药店ID", min_value=1, step=1, value=int(user_info["药店ID"]))
+            password = st.text_input("密码（留空则不修改）", type="password")
+            if st.form_submit_button("更新"):
+                if password == "":
+                    with get_conn() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute("SELECT password FROM users WHERE user_id = %s", (user_to_update,))
+                            password = cur.fetchone()["password"]
+                manage_users("update", user_id=user_to_update, username=username, password=password, role=role_option, pharmacy_id=pharmacy_id)
+                st.success("用户更新成功")
                 st.rerun()
 
 def admin_pharmacy_section():
@@ -151,13 +188,36 @@ def admin_pharmacy_section():
         df.rename(columns={"pharmacy_id": "药店ID", "name": "药店名称", "address": "地址"}, inplace=True)
     st.dataframe(df, use_container_width=True)
 
-    with st.expander("➕ 添加药店"):
-        with st.form("添加药店表单"):
-            name = st.text_input("药店名称")
-            address = st.text_area("地址")
-            if st.form_submit_button("添加"):
-                manage_pharmacies("add", name=name, address=address)
-                st.success("药店添加成功")
+    # 添加药店部分
+    st.markdown("### 添加药店")
+    with st.form("添加药店表单"):
+        new_name = st.text_input("药店名称", key="add_pharmacy_name")
+        new_address = st.text_area("地址", key="add_pharmacy_address")
+        if st.form_submit_button("添加药店"):
+            manage_pharmacies("add", name=new_name, address=new_address)
+            st.success("药店添加成功")
+            st.rerun()
+
+    # 删除药店
+    st.markdown("### 删除药店")
+    pharmacy_ids = df["药店ID"].tolist()
+    pharmacy_to_delete = st.selectbox("选择要删除的药店ID", pharmacy_ids)
+    if st.button("删除药店"):
+        manage_pharmacies("delete", pharmacy_id=pharmacy_to_delete)
+        st.success(f"药店ID {pharmacy_to_delete} 已删除")
+        st.rerun()
+
+    # 更新药店
+    st.markdown("### 更新药店")
+    pharmacy_to_update = st.selectbox("选择要更新的药店ID", pharmacy_ids, key="update_pharmacy_select")
+    if pharmacy_to_update:
+        pharmacy_info = df[df["药店ID"] == pharmacy_to_update].iloc[0]
+        with st.form("更新药店表单"):
+            name = st.text_input("药店名称", value=pharmacy_info["药店名称"])
+            address = st.text_area("地址", value=pharmacy_info["地址"])
+            if st.form_submit_button("更新"):
+                manage_pharmacies("update", pharmacy_id=pharmacy_to_update, name=name, address=address)
+                st.success("药店更新成功")
                 st.rerun()
 
 def pharmacy_admin_section():
