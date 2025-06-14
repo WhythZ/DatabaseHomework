@@ -7,13 +7,13 @@ This repo adopts [MIT License](https://spdx.org/licenses/MIT)
 This repo stores a minimal implementation for the school's database course, we're forced to use OpenGuass instead of other DBMS
 
 ## Deployment
-- Clone this repo locally (no need to import into the docker container), supposed the folder name to be `DatabaseHomework`
+- Clone this repo to your computer as `DatabaseHomework` folder for example
 
 ```bash
 git clone git@github.com:WhythZ/DatabaseHomework.git
 ```
 
-- Create a new virtual environment, install the dependencies in `requirements.txt`
+- Create a new virtual environment and install the dependencies in `requirements.txt`
 
 ```bash
 conda create -n DBH python=3.10
@@ -23,7 +23,7 @@ cd xxx/xxx/DatabaseHomework
 pip install -r requirements.txt
 ```
 
-- Start your OpenGauss environment, for example creating a docker container of OpenGauss after pulling the corresponding docker image using following commands
+- Create a new docker container of OpenGauss using following commands after pulling the corresponding docker image `opengauss-server`
 
 ```bash
 docker run --name DBH --privileged=true -d -e GS_PASSWORD=StrongPassword@1234567890 -p 8888:5432 opengauss/opengauss-server:latest
