@@ -224,22 +224,116 @@ def pharmacy_admin_section():
     st.subheader("💊 药品管理")
     pharmacy_id = st.session_state.user['pharmacy_id']
     medicines = get_medicines(pharmacy_id)
+
     if medicines:
         df = pd.DataFrame(medicines)
-        df.rename(columns={"name": "名称", "manufacturer": "生产商", "code": "编码", "price": "价格", "stock": "库存"}, inplace=True)
-        st.dataframe(df)
+        df.rename(columns={
+            "medicine_id": "药品ID",
+            "name": "药品名称",
+            "manufacturer": "药品产商",
+            "code": "药品编码",
+            "price": "药品价格",
+            "stock": "药品库存"
+        }, inplace=True)
+        st.dataframe(df, use_container_width=True)
 
+    # 添加药品
     with st.expander("➕ 添加药品"):
         with st.form("添加药品表单"):
             name = st.text_input("药品名称")
-            manufacturer = st.text_input("生产商")
-            code = st.text_input("编码")
-            price = st.number_input("价格", min_value=0.0, step=0.1)
-            stock = st.number_input("库存", min_value=0, step=1)
+            manufacturer = st.text_input("药品产商")
+            code = st.text_input("药品编码")
+            price = st.number_input("药品价格", min_value=0.0, step=0.1)
+            stock = st.number_input("药品库存", min_value=0, step=1)
             if st.form_submit_button("添加"):
                 manage_medicines("add", name=name, manufacturer=manufacturer, code=code, price=price, stock=stock, pharmacy_id=pharmacy_id)
                 st.success("药品添加成功")
                 st.rerun()
+
+    # 更新药品
+    with st.expander("✏️ 更新药品信息"):
+        medicine_ids = [m["medicine_id"] for m in medicines]
+        selected_id = st.selectbox("选择药品ID进行更新", medicine_ids, key="update_medicine_select")
+        selected_med = next((m for m in medicines if m["medicine_id"] == selected_id), None)
+        if selected_med:
+            with st.form("更新药品表单"):
+                name = st.text_input("药品名称", value=selected_med["name"])
+                manufacturer = st.text_input("药品产商", value=selected_med["manufacturer"])
+                code = st.text_input("药品编码", value=selected_med["code"])
+                price = st.number_input("药品价格", min_value=0.0, step=0.1, value=float(selected_med["price"]))
+                stock = st.number_input("药品库存", min_value=0, step=1, value=selected_med["stock"])
+                if st.form_submit_button("更新药品"):
+                    manage_medicines("update", medicine_id=selected_id, name=name, manufacturer=manufacturer, code=code, price=price, stock=stock)
+                    st.success("药品更新成功")
+                    st.rerun()
+
+    # 删除药品
+    st.markdown("---")
+    st.subheader("🗑️ 删除药品")
+    
+    medicine_ids = [m["medicine_id"] for m in medicines]
+
+    st.markdown("#### 选择药品")
+    delete_id = st.selectbox("药品ID", medicine_ids, key="delete_medicine_select")
+    
+    # 检查该药品是否存在销售记录
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM sales WHERE medicine_id = %s", (delete_id,))
+            ref_count = cur.fetchone()['count']
+    
+    selected_med = next((m for m in medicines if m["medicine_id"] == delete_id), None)
+    if selected_med:
+        st.markdown(f"**药品名称**：{selected_med['name']}")
+        st.markdown(f"**药品产商**：{selected_med['manufacturer']}")
+        st.markdown(f"**药品编码**：{selected_med['code']}")
+    
+    # 分支1: 没有销售记录引用 - 直接删除
+    if ref_count == 0:
+        if st.button("确认删除药品", key="safe_delete_btn"):
+            manage_medicines("delete", medicine_id=delete_id)
+            st.success(f"药品ID {delete_id} 已成功删除（无销售引用）")
+            st.rerun()
+    
+    # 分支2: 存在销售记录引用 - 提供强制删除选项
+    else:
+        st.warning(f"⚠️ 该药品在销售记录中有 {ref_count} 条引用，删除将导致关联数据丢失！")
+        
+        # 显示关联销售记录预览
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT s.sale_id, s.quantity, s.sale_time, u.username 
+                    FROM sales s
+                    JOIN users u ON s.user_id = u.user_id
+                    WHERE s.medicine_id = %s
+                    ORDER BY s.sale_time DESC
+                    LIMIT 10
+                """, (delete_id,))
+                sales = cur.fetchall()
+                if sales:
+                    sales_df = pd.DataFrame(sales)
+                    st.dataframe(sales_df)
+                else:
+                    st.info("无销售记录")
+        
+        # 强制删除选项
+        st.markdown("#### 强制删除")
+        
+        # 添加额外的确认步骤
+        force_confirm = st.checkbox("我理解这将永久删除所有关联数据", key="force_confirm")
+        if st.button("强制删除", disabled=not force_confirm, 
+                   help="删除药品及其所有销售记录", key="force_delete_btn"):
+            with get_conn() as conn:
+                with conn.cursor() as cur:
+                    # 先删除关联的销售记录
+                    cur.execute("DELETE FROM sales WHERE medicine_id = %s", (delete_id,))
+                    # 再删除药品
+                    cur.execute("DELETE FROM medicines WHERE medicine_id = %s", (delete_id,))
+                    conn.commit()
+            st.success(f"药品ID {delete_id} 及其 {ref_count} 条销售记录已强制删除")
+            st.cache_data.clear()
+            st.rerun()
 
 def sales_section():
     st.subheader("🛒 药品销售")
