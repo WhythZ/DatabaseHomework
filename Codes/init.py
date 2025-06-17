@@ -94,7 +94,7 @@ def init_database():
             ('阿司匹林肠溶片', '拜耳医药', 'ASPL005', 22.0, 100, %s),
             ('头孢克肟分散片', '白云山制药', 'TBKW006', 45.0, 80, %s),
             ('盐酸左氧氟沙星胶囊', '第一三共制药', 'YSLY007', 35.0, 90, %s);
-        """, (pharmacy_id, pharmacy_id))
+        """, (pharmacy_id,) * 10)
         print("Insert Medicines Success!")
         
         conn.commit()
