@@ -407,7 +407,7 @@ def sales_section():
             # 清除缓存，刷新 medicines 数据
             st.cache_data.clear()
             # 立即刷新销售记录显示
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("销售失败，库存不足或药品不存在")
     
