@@ -406,14 +406,93 @@ def sales_section():
             st.success(f"成功销售 {quantity} 件《{selected_med['name']}》")
             # 清除缓存，刷新 medicines 数据
             st.cache_data.clear()
-            medicines = get_medicines(pharmacy_id)
-            med_map = {f"{m['name']} | {m['manufacturer']} | 编码: {m['code']}": m for m in medicines}
-            # 更新选中药品库存信息
-            selected_med = med_map.get(selected)
-            if selected_med:
-                st.markdown(f"**更新后库存:** {selected_med['stock']}")
+            # 立即刷新销售记录显示
+            st.experimental_rerun()
         else:
             st.error("销售失败，库存不足或药品不存在")
+    
+    # 新增销售记录查看板块（修复时间范围问题）
+    st.markdown("---")
+    st.subheader("📊 销售记录")
+    
+    # 时间范围选择器
+    time_range = st.selectbox("时间范围", 
+                             ["今日", "最近7天", "最近30天", "全部"],
+                             index=0)
+    
+    # 获取销售记录（修复时间范围查询）
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # 基础查询
+            base_query = """
+                SELECT s.sale_id, s.sale_time, m.name AS medicine_name, 
+                       m.manufacturer, s.quantity, m.price, 
+                       (s.quantity * m.price) AS total_amount,
+                       u.username
+                FROM sales s
+                JOIN medicines m ON s.medicine_id = m.medicine_id
+                JOIN users u ON s.user_id = u.user_id
+                WHERE s.user_id = %s
+            """
+            params = [user_id]
+            
+            # 添加精确的时间过滤条件
+            if time_range == "今日":
+                base_query += " AND s.sale_time >= CURRENT_DATE"
+            elif time_range == "最近7天":
+                base_query += " AND s.sale_time >= CURRENT_DATE - INTERVAL '6 days'"
+            elif time_range == "最近30天":
+                base_query += " AND s.sale_time >= CURRENT_DATE - INTERVAL '29 days'"
+            
+            base_query += " ORDER BY s.sale_time DESC"
+            
+            cur.execute(base_query, params)
+            sales_records = cur.fetchall()
+    
+    # 显示销售记录
+    if sales_records:
+        # 创建数据框
+        sales_df = pd.DataFrame(sales_records)
+        sales_df.rename(columns={
+            "sale_id": "销售ID",
+            "sale_time": "销售时间",
+            "medicine_name": "药品名称",
+            "manufacturer": "生产商",
+            "quantity": "数量",
+            "price": "单价",
+            "total_amount": "总金额",
+            "username": "销售员"
+        }, inplace=True)
+        
+        # 格式化时间列（精确到秒）
+        sales_df["销售时间"] = sales_df["销售时间"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 计算总销售金额
+        total_sales = sales_df["总金额"].sum()
+        total_quantity = sales_df["数量"].sum()
+        
+        # 显示统计信息
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("总销售额", f"¥{total_sales:.2f}")
+        with col2:
+            st.metric("总销售数量", f"{total_quantity} 件")
+        
+        # 显示数据表格
+        st.dataframe(sales_df[["销售时间", "药品名称", "生产商", "数量", "单价", "总金额"]], 
+                     use_container_width=True,
+                     hide_index=True)
+        
+        # 添加数据导出功能
+        csv = sales_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="导出销售记录",
+            data=csv,
+            file_name=f"销售记录_{time_range}.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("当前时间段内无销售记录")
 
 def main():
     st.set_page_config(page_title="连锁药店管理系统", layout="wide")
