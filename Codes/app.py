@@ -411,7 +411,7 @@ def sales_section():
         else:
             st.error("销售失败，库存不足或药品不存在")
     
-    # 新增销售记录查看板块（修复时间范围问题）
+    # 销售记录查看板块
     st.markdown("---")
     st.subheader("📊 销售记录")
     
