@@ -359,7 +359,7 @@ def pharmacy_admin_section():
         st.info("当前没有药品可供删除")
 
 def sales_section():
-    st.subheader("🛒 药品销售")
+    st.subheader("🛒 药品检索")
     pharmacy_id = st.session_state.user['pharmacy_id']
     user_id = st.session_state.user['user_id']
 
@@ -369,27 +369,27 @@ def sales_section():
         st.info("当前药店暂无药品")
         return
 
-    med_map = {f"{m['name']} | {m['manufacturer']} | 编码: {m['code']}": m for m in medicines}
+    med_map = {f"{m['name']} | {m['manufacturer']} | {m['code']}": m for m in medicines}
 
     keyword = st.text_input("🔍 搜索药品 (名称/生产商/编码)")
     if keyword:
         results = search_medicines(pharmacy_id, keyword)
         if results:
-            st.markdown("#### 搜索结果:")
+            st.markdown("#### 搜索结果")
             for med in results:
-                st.write(f"- {med['name']} | {med['manufacturer']} | 库存: {med['stock']} | 价格: ¥{med['price']:.2f}")
+                st.write(f"- {med['name']} | {med['manufacturer']} | 编码：{med['code']} | 库存：{med['stock']} | 价格：¥{med['price']:.2f}")
         else:
             st.info("未找到匹配的药品")
 
     st.markdown("---")
-    st.subheader("💳 执行销售")
+    st.subheader("💳 药品销售")
 
     # 选择药品
     options = list(med_map.keys())
     selected = st.selectbox("选择药品", options)
 
     selected_med = med_map[selected]
-    st.markdown(f"**药品详情:** 库存: {selected_med['stock']}  |  价格: ¥{selected_med['price']:.2f}")
+    st.markdown(f"**药品详情**： 库存：{selected_med['stock']}  |  价格：¥{selected_med['price']:.2f}")
 
     max_qty = selected_med['stock']
     if max_qty == 0:
